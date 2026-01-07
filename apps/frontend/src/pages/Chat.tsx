@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Send } from 'lucide-react';
 import { useChatStore } from '@/stores/chatStore';
@@ -6,12 +6,14 @@ import { api } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Chat } from '@atlas/shared';
+import type { Chat, Message } from '@atlas/shared';
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
-  const { currentChat, messages, setCurrentChat, setMessages, setLoading, isLoading } =
+  const { currentChat, messages, setCurrentChat, setMessages, setLoading, addMessage, isLoading } =
     useChatStore();
+  const [inputValue, setInputValue] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -33,6 +35,42 @@ export default function ChatPage() {
     const response = await api.get<any[]>(`/api/chats/${chatId}/messages`);
     if (response.success && response.data) {
       setMessages(response.data);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !id || isSending) return;
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      chatId: id,
+      role: 'user',
+      content: inputValue,
+      references: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    setInputValue('');
+    addMessage(userMessage);
+    setIsSending(true);
+
+    const response = await api.post(`/api/chats/${id}/messages`, {
+      content: inputValue,
+      references: [],
+    });
+
+    if (response.success && response.data) {
+      const assistantMessage = response.data;
+      addMessage(assistantMessage);
+    }
+
+    setIsSending(false);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -106,8 +144,16 @@ export default function ChatPage() {
             <Input
               type="text"
               placeholder="Type your message..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isSending}
             />
-            <Button size="icon">
+            <Button
+              size="icon"
+              onClick={handleSendMessage}
+              disabled={isSending || !inputValue.trim()}
+            >
               <Send className="w-5 h-5" />
             </Button>
           </div>
