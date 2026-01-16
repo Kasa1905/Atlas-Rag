@@ -11,6 +11,13 @@ export interface Document {
   metadata?: {
     pageCount?: number;
     chunkCount?: number;
+    embeddingStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+    embeddingProgress?: {
+      total: number;
+      completed: number;
+      failed: number;
+    };
+    embeddingError?: string;
     [key: string]: any;
   };
   errorMessage?: string;

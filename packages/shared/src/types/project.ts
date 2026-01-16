@@ -12,6 +12,7 @@ export interface ProjectSettings {
   chunkOverlap: number;
   embeddingModel: string;
   chatModel: string;
+  watchedDirectory?: string;
 }
 
 export interface CreateProjectInput {

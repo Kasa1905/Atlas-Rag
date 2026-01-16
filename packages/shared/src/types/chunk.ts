@@ -15,18 +15,6 @@ export interface ChunkMetadata {
   [key: string]: any;
 }
 
-export interface ChunkOptions {
-  chunkSize: number;
-  chunkOverlap: number;
-  preserveWords?: boolean;
-}
-
-export interface TextChunk {
-  content: string;
-  startChar: number;
-  endChar: number;
-}
-
 export interface Embedding {
   id: string;
   chunkId: string;
@@ -50,4 +38,21 @@ export interface CreateEmbeddingInput {
   embedding: number[];
   model: string;
   dimension: number;
+}
+export interface EmbeddingProgress {
+  total: number;
+  completed: number;
+  failed: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  startTime?: number;
+  endTime?: number;
+}
+
+export interface EmbeddingStats {
+  projectId: string;
+  totalChunks: number;
+  embeddedChunks: number;
+  pendingChunks: number;
+  indexSize: number;
+  lastUpdated: number;
 }

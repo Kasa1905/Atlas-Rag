@@ -161,3 +161,147 @@ export function deleteChunksByDocument(documentId: string): boolean {
 
   return result.changes > 0;
 }
+
+export function getChunksWithoutEmbeddings(documentId: string): Chunk[] {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT c.* FROM chunks c
+    LEFT JOIN embeddings e ON c.id = e.chunk_id
+    WHERE c.document_id = ? AND e.id IS NULL
+    ORDER BY c.chunk_index ASC
+  `);
+
+  const rows = stmt.all(documentId) as any[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    documentId: row.document_id,
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    startChar: row.start_char,
+    endChar: row.end_char,
+    metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+export function getChunksWithoutEmbeddingsByProject(projectId: string): Chunk[] {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT c.* FROM chunks c
+    LEFT JOIN embeddings e ON c.id = e.chunk_id
+    LEFT JOIN documents d ON c.document_id = d.id
+    WHERE d.project_id = ? AND e.id IS NULL
+    ORDER BY c.chunk_index ASC
+  `);
+
+  const rows = stmt.all(projectId) as any[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    documentId: row.document_id,
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    startChar: row.start_char,
+    endChar: row.end_char,
+    metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+export function countEmbeddingsByDocument(documentId: string): number {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM embeddings e
+    LEFT JOIN chunks c ON e.chunk_id = c.id
+    WHERE c.document_id = ?
+  `);
+
+  const result = stmt.get(documentId) as any;
+
+  return result?.count || 0;
+}
+
+export function countEmbeddingsByProject(projectId: string): number {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM embeddings e
+    LEFT JOIN chunks c ON e.chunk_id = c.id
+    LEFT JOIN documents d ON c.document_id = d.id
+    WHERE d.project_id = ?
+  `);
+
+  const result = stmt.get(projectId) as any;
+
+  return result?.count || 0;
+}
+
+export function countChunksByProject(projectId: string): number {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM chunks c
+    LEFT JOIN documents d ON c.document_id = d.id
+    WHERE d.project_id = ?
+  `);
+
+  const result = stmt.get(projectId) as any;
+
+  return result?.count || 0;
+}
+
+export function countChunksWithoutEmbeddingsByProject(projectId: string): number {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM chunks c
+    LEFT JOIN embeddings e ON c.id = e.chunk_id
+    LEFT JOIN documents d ON c.document_id = d.id
+    WHERE d.project_id = ? AND e.id IS NULL
+  `);
+
+  const result = stmt.get(projectId) as any;
+
+  return result?.count || 0;
+}
+
+export function getAllEmbeddingsByProject(projectId: string): Array<{ chunkId: string; embedding: number[] }> {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT e.chunk_id, e.embedding FROM embeddings e
+    LEFT JOIN chunks c ON e.chunk_id = c.id
+    LEFT JOIN documents d ON c.document_id = d.id
+    WHERE d.project_id = ?
+  `);
+
+  const rows = stmt.all(projectId) as any[];
+
+  return rows.map((row) => {
+    const buffer = row.embedding as Buffer;
+    const embedding = Array.from(new Float32Array(buffer.buffer));
+
+    return {
+      chunkId: row.chunk_id,
+      embedding,
+    };
+  });
+}
+
+export function deleteEmbeddingsByDocument(documentId: string): boolean {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    DELETE FROM embeddings WHERE chunk_id IN (
+      SELECT id FROM chunks WHERE document_id = ?
+    )
+  `);
+
+  const result = stmt.run(documentId);
+
+  return result.changes > 0;
+}

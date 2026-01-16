@@ -1,8 +1,9 @@
 import { getDocument, updateDocument } from '@atlas/database';
 import { getProject } from '@atlas/database';
-import { createChunk, deleteChunksByDocument } from '@atlas/database';
+import { createChunk, deleteChunksByDocument, deleteEmbeddingsByDocument } from '@atlas/database';
 import { parsePDF, parseCodeFile } from './parserService';
 import { chunkText, chunkCode } from '@atlas/shared';
+import { generateEmbeddingsForDocument } from './embeddingService';
 import type { ProjectSettings } from '@atlas/shared';
 
 /**
@@ -68,8 +69,9 @@ export async function ingestDocument(documentId: string): Promise<void> {
 
     console.log(`Created ${chunks.length} chunks`);
 
-    // Delete existing chunks to avoid duplicates on re-ingestion
+    // Delete existing chunks and embeddings to avoid duplicates on re-ingestion
     const deletedCount = deleteChunksByDocument(document.id);
+    deleteEmbeddingsByDocument(document.id);
     if (deletedCount) {
       console.log(`Deleted ${deletedCount} existing chunks for document ${document.id}`);
     }
@@ -95,9 +97,15 @@ export async function ingestDocument(documentId: string): Promise<void> {
     updateDocument(documentId, { status: 'completed', metadata });
 
     console.log(`Successfully ingested document: ${documentId}`);
+
+    // Trigger embedding generation asynchronously (non-blocking)
+    console.log(`Triggering embedding generation for document: ${documentId}`);
+    generateEmbeddingsForDocument(documentId).catch((error) => {
+      console.error(`Embedding generation failed for document ${documentId}:`, error);
+    });
   } catch (error) {
     console.error(`Failed to ingest document ${documentId}:`, error);
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
 
     // Update document status to failed
